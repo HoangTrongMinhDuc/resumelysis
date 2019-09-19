@@ -1,0 +1,10 @@
+spacy
+phonenumbers
+pymongo
+dnspython
+pandas
+tika
+nltk
+Pillow
+pytesseract
+pdf2image
