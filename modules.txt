@@ -8,3 +8,8 @@ nltk
 Pillow
 pytesseract
 pdf2image
+flask
+request
+timeloop
+urllib3
+file-downloader
