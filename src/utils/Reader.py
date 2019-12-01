@@ -1,21 +1,24 @@
-from docx import Document
-from tika import parser
-from PIL import Image
-import pytesseract
-import sys
-from pdf2image import convert_from_path
-import os
 import re
+import os
+from pdf2image import convert_from_path
+import sys
+import pytesseract
+from PIL import Image
+from docx import Document
+import textract
 
 
-def readFile(filename):
+def readFile(filename, orc=False, cleanup=False):
     if filename.endswith(".pdf"):
-        fileContent = readPdfByOcr(filename)
+        if orc:
+            fileContent = readPdfByOcr(filename)
+        else:
+            fileContent = getPDFText(filename)
     else:
         fileContent = getDocxText(filename)
-    fileContent = repr(fileContent).replace('\\n', '.').replace('\\t', '.')
-    fileContent = re.sub('\.+', '.', fileContent)
-    fileContent = re.sub(' +', ' ', fileContent)
+    # fileContent = textract.process(filename)
+    if cleanup:
+        return cleanupText(fileContent)
     return fileContent
 
 
@@ -29,13 +32,8 @@ def getDocxText(filename):
 
 
 def getPDFText(filename):
-    raw = parser.from_file(filename)
-    fileContent = raw["content"]
-    if "title" in raw["metadata"]:
-        title = raw["metadata"]["title"]
-        if(isinstance(title, str)):
-            fileContent = fileContent.replace(title, "")
-    return fileContent
+    fileContent = textract.process(filename, method='pdfminer')
+    return str(fileContent, 'utf-8')
 
 
 def convertPdftoImage(pdfFile):
@@ -50,6 +48,13 @@ def convertPdftoImage(pdfFile):
     return images
 
 
+def turnImageToBlackWhite(images):
+    for img in images:
+        image_file = Image.open(img)
+        image_file = image_file.convert('1')
+        image_file.save(img)
+
+
 def readImageToText(images):
     text = ''
     for i in images:
@@ -62,8 +67,18 @@ def cleanupImage(files):
         os.remove(f)
 
 
+def cleanupText(text):
+    text = re.sub(
+        '[^\d\w\s\+\-\(\)\.\,\\\/\@\#\%\^\&\*\-\=\{\}\:\;\"\'\<\>\?\~]', ' ', text)
+    text = repr(text).replace('\\t', ' ').replace('\\n', '\n').replace('\\x0c', ' ').replace('\\xa0', ' ').replace('\\r', ' ').replace('\\u', ' ')
+    text = re.sub('[–—]', '-', text)
+    text = re.sub(' +', ' ', text)
+    return text[1:len(text)-1].strip()
+
+
 def readPdfByOcr(pdfFile):
     images = convertPdftoImage(pdfFile)
+    turnImageToBlackWhite(images)
     text = readImageToText(images)
     cleanupImage(images)
     return text
